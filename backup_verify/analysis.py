@@ -1,0 +1,86 @@
+"""Compare backup history with the policy and produce findings."""
+from dataclasses import dataclass, field
+from datetime import datetime
+
+from .model import FULL, DIFF, LOG
+
+CRITICAL = "critical"
+WARNING = "warning"
+INFO = "info"
+SEVERITY_ORDER = {CRITICAL: 0, WARNING: 1, INFO: 2}
+
+
+@dataclass
+class Finding:
+    database: str
+    code: str
+    severity: str
+    message: str
+    detail: dict = field(default_factory=dict)
+
+
+@dataclass
+class Analysis:
+    server: str
+    now: datetime
+    checked: list
+    findings: list
+
+    def worst_by_database(self):
+        worst = {}
+        for f in self.findings:
+            current = worst.get(f.database)
+            if current is None or SEVERITY_ORDER[f.severity] < SEVERITY_ORDER[current]:
+                worst[f.database] = f.severity
+        return worst
+
+    def counts(self):
+        worst = self.worst_by_database()
+        crit = sum(1 for s in worst.values() if s == CRITICAL)
+        warn = sum(1 for s in worst.values() if s == WARNING)
+        return {
+            "databases": len(self.checked),
+            "critical": crit,
+            "warning": warn,
+            "ok": len(self.checked) - len(worst),
+        }
+
+
+def hours_between(later, earlier):
+    return (later - earlier).total_seconds() / 3600.0
+
+
+def latest(backups, kind):
+    chosen = [b for b in backups if b.type == kind]
+    return max(chosen, key=lambda b: b.finish) if chosen else None
+
+
+def check_full(db, backups, policy, now):
+    full = latest(backups, FULL)
+    if full is None:
+        return [Finding(db, "NO_FULL_BACKUP", CRITICAL,
+                        "no full backup found in the history window")]
+    age = hours_between(now, full.finish)
+    limit = policy.full_max_age_hours
+    if age > limit:
+        severity = CRITICAL if age > 2 * limit else WARNING
+        return [Finding(db, "FULL_STALE", severity,
+                        "last full backup finished %.1f h ago (limit %g h)" % (age, limit),
+                        {"finished": full.finish.isoformat(), "age_hours": round(age, 1)})]
+    return []
+
+
+def analyse(databases, backups, config, now, server=""):
+    by_db = {}
+    for b in backups:
+        by_db.setdefault(b.database.lower(), []).append(b)
+    checked, findings = [], []
+    for info in databases:
+        if config.is_excluded(info.name):
+            continue
+        checked.append(info.name)
+        mine = sorted(by_db.get(info.name.lower(), []), key=lambda b: b.start)
+        policy = config.policy_for(info.name)
+        findings += check_full(info.name, mine, policy, now)
+    findings.sort(key=lambda f: (SEVERITY_ORDER[f.severity], f.database.lower(), f.code))
+    return Analysis(server, now, checked, findings)
