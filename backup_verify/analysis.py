@@ -70,6 +70,38 @@ def check_full(db, backups, policy, now):
     return []
 
 
+def check_diff(db, backups, policy, now):
+    limit = policy.diff_max_age_hours
+    if limit is None:
+        return []
+    marks = [b.finish for b in backups if b.type in (FULL, DIFF)]
+    if not marks:
+        return []  # reported as NO_FULL_BACKUP already
+    age = hours_between(now, max(marks))
+    if age > limit:
+        return [Finding(db, "DIFF_STALE", WARNING,
+                        "no differential or full backup for %.1f h (limit %g h)" % (age, limit),
+                        {"age_hours": round(age, 1)})]
+    return []
+
+
+def check_log(db, backups, policy, now):
+    limit = policy.log_max_age_minutes
+    if limit is None:
+        return []
+    log = latest(backups, LOG)
+    if log is None:
+        return [Finding(db, "NO_LOG_BACKUP", CRITICAL,
+                        "no log backup found in the history window")]
+    age = (now - log.finish).total_seconds() / 60.0
+    if age > limit:
+        severity = CRITICAL if age > 2 * limit else WARNING
+        return [Finding(db, "LOG_STALE", severity,
+                        "last log backup finished %.0f min ago (limit %g min)" % (age, limit),
+                        {"finished": log.finish.isoformat(), "age_minutes": round(age)})]
+    return []
+
+
 def analyse(databases, backups, config, now, server=""):
     by_db = {}
     for b in backups:
@@ -82,5 +114,7 @@ def analyse(databases, backups, config, now, server=""):
         mine = sorted(by_db.get(info.name.lower(), []), key=lambda b: b.start)
         policy = config.policy_for(info.name)
         findings += check_full(info.name, mine, policy, now)
+        findings += check_diff(info.name, mine, policy, now)
+        findings += check_log(info.name, mine, policy, now)
     findings.sort(key=lambda f: (SEVERITY_ORDER[f.severity], f.database.lower(), f.code))
     return Analysis(server, now, checked, findings)
