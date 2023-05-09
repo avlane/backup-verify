@@ -29,6 +29,8 @@ class Analysis:
     def worst_by_database(self):
         worst = {}
         for f in self.findings:
+            if f.severity == INFO:
+                continue
             current = worst.get(f.database)
             if current is None or SEVERITY_ORDER[f.severity] < SEVERITY_ORDER[current]:
                 worst[f.database] = f.severity
@@ -110,11 +112,16 @@ def analyse(databases, backups, config, now, server=""):
     for info in databases:
         if config.is_excluded(info.name):
             continue
+        if info.state != "ONLINE":
+            findings.append(Finding(info.name, "SKIPPED_STATE", INFO,
+                                    "database is %s, not checked" % info.state))
+            continue
         checked.append(info.name)
         mine = sorted(by_db.get(info.name.lower(), []), key=lambda b: b.start)
         policy = config.policy_for(info.name)
         findings += check_full(info.name, mine, policy, now)
         findings += check_diff(info.name, mine, policy, now)
-        findings += check_log(info.name, mine, policy, now)
+        if info.recovery_model != "SIMPLE":
+            findings += check_log(info.name, mine, policy, now)
     findings.sort(key=lambda f: (SEVERITY_ORDER[f.severity], f.database.lower(), f.code))
     return Analysis(server, now, checked, findings)

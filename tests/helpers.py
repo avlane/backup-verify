@@ -31,3 +31,31 @@ def backup(db, kind, hours_ago, minutes=1, first=None, last=None, **kw):
 
 def database(name, model="FULL", state="ONLINE"):
     return DatabaseInfo(name, model, state)
+
+
+FIXTURE_CONFIG = {
+    "defaults": {"full_max_age_hours": 26, "log_max_age_minutes": 90},
+    "databases": {
+        "Sales": {"diff_max_age_hours": 20},
+        "Reporting": {"log_max_age_minutes": 180},
+    },
+}
+
+
+def analyse_fixture(name, config=None, **kwargs):
+    """Run the full pipeline against tests/fixtures/<name>.json."""
+    from backup_verify.analysis import analyse
+    from backup_verify.config import parse_config
+    from backup_verify.queries import fetch_backups, fetch_databases
+
+    from .fakes import connection_from_fixture
+
+    conn = connection_from_fixture(name)
+    dbs = fetch_databases(conn)
+    backups = fetch_backups(conn, NOW)
+    cfg = parse_config(config or FIXTURE_CONFIG)
+    return analyse(dbs, backups, cfg, NOW, server="SQLPROD01", **kwargs)
+
+
+def codes(result):
+    return sorted((f.database, f.code) for f in result.findings)
