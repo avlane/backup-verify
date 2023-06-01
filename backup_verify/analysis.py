@@ -104,6 +104,27 @@ def check_log(db, backups, policy, now):
     return []
 
 
+def check_log_chain(db, backups):
+    """Each log backup must start at the LSN where the previous one ended."""
+    logs = sorted((b for b in backups if b.type == LOG), key=lambda b: b.start)
+    findings = []
+    for prev, cur in zip(logs, logs[1:]):
+        if cur.first_lsn != prev.last_lsn:
+            findings.append(Finding(
+                db, "LOG_CHAIN_BROKEN", CRITICAL,
+                "log chain broken between backup %d (%s) and %d (%s): expected first LSN %d, found %d" % (
+                    prev.backup_set_id, prev.finish.strftime("%Y-%m-%d %H:%M"),
+                    cur.backup_set_id, cur.start.strftime("%Y-%m-%d %H:%M"),
+                    prev.last_lsn, cur.first_lsn),
+                {"after_backup_set_id": prev.backup_set_id,
+                 "before_backup_set_id": cur.backup_set_id,
+                 "expected_first_lsn": prev.last_lsn,
+                 "actual_first_lsn": cur.first_lsn,
+                 "gap_from": prev.finish.isoformat(),
+                 "gap_to": cur.start.isoformat()}))
+    return findings
+
+
 def analyse(databases, backups, config, now, server=""):
     by_db = {}
     for b in backups:
@@ -123,5 +144,6 @@ def analyse(databases, backups, config, now, server=""):
         findings += check_diff(info.name, mine, policy, now)
         if info.recovery_model != "SIMPLE":
             findings += check_log(info.name, mine, policy, now)
+            findings += check_log_chain(info.name, mine)
     findings.sort(key=lambda f: (SEVERITY_ORDER[f.severity], f.database.lower(), f.code))
     return Analysis(server, now, checked, findings)
