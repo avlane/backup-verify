@@ -1,4 +1,6 @@
 """Render an Analysis for people (text) or machines (JSON)."""
+import json
+from dataclasses import asdict
 
 
 def render_text(analysis):
@@ -17,7 +19,17 @@ def render_text(analysis):
     return "\n".join(lines) + "\n"
 
 
-RENDERERS = {"text": render_text}
+def render_json(analysis):
+    doc = {
+        "server": analysis.server,
+        "server_time": analysis.now.isoformat(timespec="seconds"),
+        "summary": analysis.counts(),
+        "findings": [asdict(f) for f in analysis.findings],
+    }
+    return json.dumps(doc, indent=2) + "\n"
+
+
+RENDERERS = {"text": render_text, "json": render_json}
 
 
 def render(analysis, fmt="text"):

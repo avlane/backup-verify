@@ -1,3 +1,4 @@
+import json
 import unittest
 
 from backup_verify.report import render, render_text
@@ -21,3 +22,18 @@ class TextReportTest(unittest.TestCase):
     def test_unknown_format(self):
         with self.assertRaises(ValueError):
             render(analyse_fixture("healthy"), "xml")
+
+
+class JsonReportTest(unittest.TestCase):
+    def test_json_round_trips(self):
+        doc = json.loads(render(analyse_fixture("stale"), "json"))
+        self.assertEqual(doc["server"], "SQLPROD01")
+        self.assertEqual(doc["server_time"], "2023-03-01T08:00:00")
+        self.assertEqual(doc["summary"]["critical"], 2)
+        first = doc["findings"][0]
+        self.assertEqual(set(first), {"database", "code", "severity", "message", "detail"})
+        self.assertEqual(first["severity"], "critical")
+
+    def test_empty_findings(self):
+        doc = json.loads(render(analyse_fixture("healthy"), "json"))
+        self.assertEqual(doc["findings"], [])
