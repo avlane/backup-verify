@@ -15,8 +15,16 @@ EXIT_OK, EXIT_WARNING, EXIT_CRITICAL, EXIT_ERROR = 0, 1, 2, 3
 DEFAULT_LOOKBACK_DAYS = 14
 
 
+class _Parser(argparse.ArgumentParser):
+    """argparse exits with 2 on usage errors; that code is reserved for critical findings."""
+
+    def error(self, message):
+        self.print_usage(sys.stderr)
+        self.exit(EXIT_ERROR, "%s: error: %s\n" % (self.prog, message))
+
+
 def build_parser():
-    p = argparse.ArgumentParser(
+    p = _Parser(
         prog="backup-verify",
         description="Check msdb backup history against RPO targets and report broken or stale backup chains.",
         epilog="Exit codes: 0 clean, 1 warnings, 2 critical findings, 3 usage/config/connection error.",
