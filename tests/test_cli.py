@@ -3,11 +3,12 @@ import json
 import os
 import tempfile
 import unittest
+from datetime import datetime
 
 from backup_verify.cli import main
 
 from .fakes import FakeConnection, connection_from_fixture
-from .helpers import FIXTURE_CONFIG, NOW
+from .helpers import FIXTURE_CONFIG
 
 
 class CliTest(unittest.TestCase):
@@ -22,7 +23,7 @@ class CliTest(unittest.TestCase):
         out = io.StringIO()
         code = main(["--server", "SQLPROD01", "--config", self.config, *argv],
                     connect=lambda args: connection_from_fixture(fixture),
-                    stdout=out, now=NOW, **kwargs)
+                    stdout=out, **kwargs)
         return code, out.getvalue()
 
     def test_clean_run_exits_zero(self):
@@ -70,12 +71,12 @@ class CliTest(unittest.TestCase):
         def boom(args):
             raise OSError("login timeout")
 
-        code = main(["--server", "SQLDR02"], connect=boom, stdout=io.StringIO(), now=NOW)
+        code = main(["--server", "SQLDR02"], connect=boom, stdout=io.StringIO())
         self.assertEqual(code, 3)
 
     def test_query_failure_is_an_error(self):
         code = main(["--server", "SQLDR02"], connect=lambda args: FakeConnection([]),
-                    stdout=io.StringIO(), now=NOW)
+                    stdout=io.StringIO())
         self.assertEqual(code, 3)
 
     def test_usage_errors_do_not_collide_with_finding_exit_codes(self):
@@ -87,3 +88,14 @@ class CliTest(unittest.TestCase):
         with self.assertRaises(SystemExit) as ctx:
             main(["--help"])
         self.assertEqual(ctx.exception.code, 0)
+
+    def test_history_window_is_measured_from_the_server_clock(self):
+        conns = []
+
+        def connect(args):
+            conns.append(connection_from_fixture("healthy"))
+            return conns[0]
+
+        main(["--server", "SQLPROD01"], connect=connect, stdout=io.StringIO())
+        params = [p for sql, p in conns[0].executed if "backupmediafamily" in sql]
+        self.assertEqual(params, [(datetime(2023, 2, 15, 8, 0, 0),)])

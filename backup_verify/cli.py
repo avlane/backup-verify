@@ -2,13 +2,13 @@
 import argparse
 import os
 import sys
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from . import __version__
 from .analysis import analyse
 from .config import Config, ConfigError, load_config
 from .connection import DEFAULT_DRIVER
-from .queries import fetch_backups, fetch_databases
+from .queries import fetch_backups, fetch_databases, fetch_server_time
 from .report import render
 
 EXIT_OK, EXIT_WARNING, EXIT_CRITICAL, EXIT_ERROR = 0, 1, 2, 3
@@ -71,7 +71,7 @@ def _error(message):
     return EXIT_ERROR
 
 
-def main(argv=None, connect=None, stdout=None, now=None):
+def main(argv=None, connect=None, stdout=None):
     stdout = stdout or sys.stdout
     args = build_parser().parse_args(argv)
     try:
@@ -82,8 +82,8 @@ def main(argv=None, connect=None, stdout=None, now=None):
         conn = (connect or default_connect)(args)
     except Exception as exc:  # driver errors are not importable without the driver
         return _error("cannot connect to %s: %s" % (args.server, exc))
-    now = now or datetime.now()
     try:
+        now, server_name = fetch_server_time(conn)
         databases = fetch_databases(conn)
         backups = fetch_backups(conn, now - timedelta(days=DEFAULT_LOOKBACK_DAYS))
     except Exception as exc:
@@ -96,7 +96,7 @@ def main(argv=None, connect=None, stdout=None, now=None):
         if missing:
             return _error("database not found: %s" % ", ".join(sorted(missing)))
         databases = [d for d in databases if d.name.lower() in wanted]
-    analysis = analyse(databases, backups, config, now, server=args.server)
+    analysis = analyse(databases, backups, config, now, server=server_name or args.server)
     text = render(analysis, args.format)
     if args.output:
         with open(args.output, "w", encoding="utf-8") as fh:

@@ -56,4 +56,5 @@ def connection_from_fixture(name):
     return FakeConnection([
         ("backupmediafamily", doc["backups"]),
         ("sys.databases", doc["databases"]),
+        ("GETDATE()", [{"server_time": doc["server_time"], "server_name": doc["server_name"]}]),
     ])

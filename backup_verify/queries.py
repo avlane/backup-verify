@@ -83,3 +83,21 @@ def fetch_databases(conn):
         ]
     finally:
         cur.close()
+
+
+SERVER_TIME_SQL = "SELECT GETDATE() AS server_time, @@SERVERNAME AS server_name;"
+
+
+def fetch_server_time(conn):
+    """Return (server_time, server_name).
+
+    msdb stores backup times in the server's local time (GETDATE), so ages must be
+    computed against the server's clock and not the machine running this tool.
+    """
+    cur = conn.cursor()
+    try:
+        cur.execute(SERVER_TIME_SQL)
+        row = rows_as_dicts(cur)[0]
+        return _dt(row["server_time"]), row["server_name"]
+    finally:
+        cur.close()
