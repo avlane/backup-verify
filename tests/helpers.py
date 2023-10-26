@@ -59,3 +59,13 @@ def analyse_fixture(name, config=None, **kwargs):
 
 def codes(result):
     return sorted((f.database, f.code) for f in result.findings)
+
+
+def fixture_backups(name, database):
+    """All backups of one database from tests/fixtures/<name>.json, oldest first."""
+    from backup_verify.queries import fetch_backups
+
+    from .fakes import connection_from_fixture
+
+    backups = fetch_backups(connection_from_fixture(name), NOW)
+    return sorted((b for b in backups if b.database == database), key=lambda b: b.start)
