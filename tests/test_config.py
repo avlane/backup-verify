@@ -65,3 +65,38 @@ class LoadConfigTest(unittest.TestCase):
                 fh.write("{not json")
             with self.assertRaises(ConfigError):
                 load_config(path)
+
+
+class LoadTomlTest(unittest.TestCase):
+    def write(self, text, name="policy.toml"):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        path = os.path.join(tmp.name, name)
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(text)
+        return path
+
+    def test_toml_file(self):
+        path = self.write("""
+exclude = ["tempdb", "model"]
+
+[defaults]
+full_max_age_hours = 30
+
+[databases.Sales]
+log_max_age_minutes = 10
+""")
+        cfg = load_config(path)
+        self.assertEqual(cfg.defaults.full_max_age_hours, 30)
+        self.assertEqual(cfg.policy_for("sales").log_max_age_minutes, 10)
+        self.assertEqual(cfg.exclude, ["tempdb", "model"])
+
+    def test_invalid_toml(self):
+        with self.assertRaises(ConfigError) as ctx:
+            load_config(self.write("[defaults\nfull = 1"))
+        self.assertIn("not valid TOML", str(ctx.exception))
+
+    def test_false_switches_a_check_off(self):
+        cfg = load_config(self.write("[defaults]\nlog_max_age_minutes = false\n"))
+        self.assertIsNone(cfg.defaults.log_max_age_minutes)
+        self.assertEqual(cfg.defaults.full_max_age_hours, 26)

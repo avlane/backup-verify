@@ -40,6 +40,8 @@ def _policy(section, base, where):
         raise ConfigError("%s: unknown key(s): %s" % (where, ", ".join(sorted(unknown))))
     values = {}
     for key, value in section.items():
+        if value is False:  # TOML has no null
+            value = None
         if value is not None:
             if isinstance(value, bool) or not isinstance(value, (int, float)) or value <= 0:
                 raise ConfigError("%s: %s must be a positive number or null" % (where, key))
@@ -64,11 +66,19 @@ def parse_config(data):
 
 
 def load_config(path):
+    """Load a policy file; `.toml` files are parsed as TOML, anything else as JSON."""
+    is_toml = str(path).lower().endswith(".toml")
     try:
-        with open(path, encoding="utf-8") as fh:
-            data = json.load(fh)
+        if is_toml:
+            import tomllib
+
+            with open(path, "rb") as fh:
+                data = tomllib.load(fh)
+        else:
+            with open(path, encoding="utf-8") as fh:
+                data = json.load(fh)
     except OSError as exc:
         raise ConfigError("cannot read %s: %s" % (path, exc)) from exc
-    except json.JSONDecodeError as exc:
-        raise ConfigError("%s is not valid JSON: %s" % (path, exc)) from exc
+    except ValueError as exc:  # json.JSONDecodeError and tomllib.TOMLDecodeError
+        raise ConfigError("%s is not valid %s: %s" % (path, "TOML" if is_toml else "JSON", exc)) from exc
     return parse_config(data)
