@@ -1,0 +1,24 @@
+# backup-verify policy file.
+#
+# Full and differential targets are in hours, log targets in minutes. The age is
+# measured from the end of the newest matching backup to the time on the server.
+# Databases are matched by name, case-insensitively. To switch a check off, set it
+# to false (TOML has no null); JSON files use null for the same thing.
+
+# Databases that are never checked.
+exclude = ["tempdb", "model"]
+
+[defaults]
+full_max_age_hours = 26      # nightly full plus a little slack
+log_max_age_minutes = 30     # logs every 15 minutes
+
+[databases.Sales]
+diff_max_age_hours = 14      # business-critical: a differential every 12 hours
+log_max_age_minutes = 15
+
+[databases.Reporting]
+log_max_age_minutes = 120    # logs every hour
+
+[databases.Archive]
+full_max_age_hours = 200     # weekly full
+log_max_age_minutes = false  # simple recovery, no log backups
