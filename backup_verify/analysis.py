@@ -2,6 +2,7 @@
 from dataclasses import dataclass, field
 from datetime import datetime
 
+from .chain import usable
 from .model import FULL, DIFF, LOG
 
 CRITICAL = "critical"
@@ -53,15 +54,17 @@ def hours_between(later, earlier):
 
 
 def latest(backups, kind):
-    chosen = [b for b in backups if b.type == kind]
+    chosen = usable(backups, kind)
     return max(chosen, key=lambda b: b.finish) if chosen else None
 
 
 def check_full(db, backups, policy, now):
     full = latest(backups, FULL)
     if full is None:
+        copies = [b for b in backups if b.type == FULL and b.is_copy_only]
+        note = " (only copy-only full backups exist, and those do not count)" if copies else ""
         return [Finding(db, "NO_FULL_BACKUP", CRITICAL,
-                        "no full backup found in the history window")]
+                        "no full backup found in the history window" + note)]
     age = hours_between(now, full.finish)
     limit = policy.full_max_age_hours
     if age > limit:
@@ -76,7 +79,7 @@ def check_diff(db, backups, policy, now):
     limit = policy.diff_max_age_hours
     if limit is None:
         return []
-    marks = [b.finish for b in backups if b.type in (FULL, DIFF)]
+    marks = [b.finish for b in backups if b.type in (FULL, DIFF) and not b.is_copy_only]
     if not marks:
         return []  # reported as NO_FULL_BACKUP already
     age = hours_between(now, max(marks))
@@ -106,7 +109,7 @@ def check_log(db, backups, policy, now):
 
 def check_log_chain(db, backups):
     """Each log backup must start at the LSN where the previous one ended."""
-    logs = sorted((b for b in backups if b.type == LOG), key=lambda b: b.start)
+    logs = sorted(usable(backups, LOG), key=lambda b: b.start)
     findings = []
     for prev, cur in zip(logs, logs[1:]):
         if cur.first_lsn != prev.last_lsn:
