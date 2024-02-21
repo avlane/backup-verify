@@ -38,6 +38,7 @@ certificate, add `--trust-server-certificate`.
 ```
 backup-verify --server SQLPROD01 --config examples/backup-verify.toml
 backup-verify --server SQLPROD01,1433 --config policy.toml --format json -o report.json
+backup-verify --server SQLPROD01 --config policy.toml --format markdown -o report.md
 backup-verify --server SQLPROD01 -d Sales -d Reporting
 backup-verify --server SQLPROD01 --scripts-dir out/
 backup-verify --help

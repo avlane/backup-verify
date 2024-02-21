@@ -34,7 +34,7 @@ def build_parser():
     p.add_argument("--config", help="policy file (RPO targets per database)")
     p.add_argument("-d", "--database", action="append", default=[], metavar="NAME",
                    help="only check this database (repeatable)")
-    p.add_argument("--format", choices=("text", "json"), default="text", help="report format (default: text)")
+    p.add_argument("--format", choices=("text", "json", "markdown"), default="text", help="report format (default: text)")
     p.add_argument("-o", "--output", help="write the report to this file instead of stdout")
     p.add_argument("--user", help="SQL login; the password is read from BACKUP_VERIFY_PASSWORD")
     p.add_argument("--driver", default=DEFAULT_DRIVER, help="ODBC driver name (default: %(default)s)")

@@ -37,3 +37,17 @@ class JsonReportTest(unittest.TestCase):
     def test_empty_findings(self):
         doc = json.loads(render(analyse_fixture("healthy"), "json"))
         self.assertEqual(doc["findings"], [])
+
+
+class MarkdownReportTest(unittest.TestCase):
+    def test_table_rows(self):
+        text = render(analyse_fixture("stale"), "markdown")
+        self.assertTrue(text.startswith("# Backup verification: SQLPROD01\n"))
+        self.assertIn("| Severity | Database | Code | Detail |", text)
+        self.assertIn("| critical | NewDb | `NO_FULL_BACKUP` | no full backup found in the history window |", text)
+        self.assertIn("| warning | Sales | `FULL_STALE` |", text)
+
+    def test_clean_report_has_no_table(self):
+        text = render(analyse_fixture("healthy"), "markdown")
+        self.assertIn("No problems found.", text)
+        self.assertNotIn("| Severity", text)

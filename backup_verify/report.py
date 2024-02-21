@@ -29,7 +29,27 @@ def render_json(analysis):
     return json.dumps(doc, indent=2) + "\n"
 
 
-RENDERERS = {"text": render_text, "json": render_json}
+def render_markdown(analysis):
+    counts = analysis.counts()
+    lines = [
+        "# Backup verification: %s" % (analysis.server or "(unknown server)"),
+        "",
+        "Server time %s. %d database(s) checked: %d ok, %d with warnings, %d critical." % (
+            analysis.now.strftime("%Y-%m-%d %H:%M:%S"), counts["databases"], counts["ok"],
+            counts["warning"], counts["critical"]),
+        "",
+    ]
+    if not analysis.findings:
+        lines.append("No problems found.")
+    else:
+        lines.append("| Severity | Database | Code | Detail |")
+        lines.append("| --- | --- | --- | --- |")
+        for f in analysis.findings:
+            lines.append("| %s | %s | `%s` | %s |" % (f.severity, f.database, f.code, f.message))
+    return "\n".join(lines) + "\n"
+
+
+RENDERERS = {"text": render_text, "json": render_json, "markdown": render_markdown}
 
 
 def render(analysis, fmt="text"):
