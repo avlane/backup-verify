@@ -15,7 +15,7 @@ FROM msdb.dbo.backupset AS bs
 JOIN msdb.dbo.backupmediafamily AS bmf ON bmf.media_set_id = bs.media_set_id
 WHERE bs.backup_start_date >= ?
   AND bs.type IN ('D', 'I', 'L')
-ORDER BY bs.database_name, bs.backup_start_date, bs.backup_set_id;
+ORDER BY bs.database_name, bs.backup_start_date, bs.backup_set_id, bmf.family_sequence_number;
 """
 
 DATABASE_SQL = """
@@ -68,7 +68,16 @@ def fetch_backups(conn, since):
     cur = conn.cursor()
     try:
         cur.execute(BACKUP_SQL, since)
-        return [backup_from_row(row) for row in rows_as_dicts(cur)]
+        # The query returns one row per backup device. A striped backup has several
+        # devices; all of them are needed to restore, so fold them into one backup set.
+        sets = {}
+        for row in rows_as_dicts(cur):
+            existing = sets.get(row["backup_set_id"])
+            if existing is None:
+                sets[row["backup_set_id"]] = backup_from_row(row)
+            else:
+                existing.devices.append(row["physical_device_name"])
+        return list(sets.values())
     finally:
         cur.close()
 
