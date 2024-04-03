@@ -2,7 +2,7 @@
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from .chain import usable
+from .chain import latest_full, usable
 from .model import FULL, DIFF, LOG
 
 CRITICAL = "critical"
@@ -128,6 +128,28 @@ def check_log_chain(db, backups):
     return findings
 
 
+def check_diff_base(db, backups):
+    """The newest differential taken after the latest full must be based on that full."""
+    full = latest_full(backups)
+    if full is None:
+        return []
+    diffs = [b for b in usable(backups, DIFF) if b.start >= full.start]
+    if not diffs:
+        return []
+    diff = max(diffs, key=lambda b: b.finish)
+    if diff.differential_base_lsn != full.checkpoint_lsn:
+        return [Finding(
+            db, "DIFF_BASE_MISMATCH", CRITICAL,
+            "differential backup %d is not based on the latest full backup %d; "
+            "a full backup that is missing from the msdb history was probably taken in between" % (
+                diff.backup_set_id, full.backup_set_id),
+            {"differential_backup_set_id": diff.backup_set_id,
+             "full_backup_set_id": full.backup_set_id,
+             "differential_base_lsn": diff.differential_base_lsn,
+             "full_checkpoint_lsn": full.checkpoint_lsn})]
+    return []
+
+
 def analyse(databases, backups, config, now, server=""):
     by_db = {}
     for b in backups:
@@ -145,6 +167,7 @@ def analyse(databases, backups, config, now, server=""):
         policy = config.policy_for(info.name)
         findings += check_full(info.name, mine, policy, now)
         findings += check_diff(info.name, mine, policy, now)
+        findings += check_diff_base(info.name, mine)
         if info.recovery_model != "SIMPLE":
             findings += check_log(info.name, mine, policy, now)
             findings += check_log_chain(info.name, mine)

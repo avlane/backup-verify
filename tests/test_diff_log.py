@@ -17,7 +17,8 @@ class DiffCheckTest(unittest.TestCase):
         self.assertEqual(result.findings, [])
 
     def test_stale_differential(self):
-        result = run([backup("Sales", "D", 20), backup("Sales", "I", 14)],
+        full = backup("Sales", "D", 20, checkpoint_lsn=500)
+        result = run([full, backup("Sales", "I", 14, differential_base_lsn=500)],
                      diff_max_age_hours=12, log_max_age_minutes=None)
         self.assertEqual([f.code for f in result.findings], ["DIFF_STALE"])
 
