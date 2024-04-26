@@ -10,6 +10,7 @@ from .config import Config, ConfigError, load_config
 from .connection import DEFAULT_DRIVER
 from .queries import fetch_backups, fetch_databases, fetch_server_time
 from .report import render
+from .scripts import write_scripts
 
 EXIT_OK, EXIT_WARNING, EXIT_CRITICAL, EXIT_ERROR = 0, 1, 2, 3
 DEFAULT_LOOKBACK_DAYS = 14
@@ -36,6 +37,8 @@ def build_parser():
                    help="only check this database (repeatable)")
     p.add_argument("--format", choices=("text", "json", "markdown"), default="text", help="report format (default: text)")
     p.add_argument("-o", "--output", help="write the report to this file instead of stdout")
+    p.add_argument("--scripts-dir", metavar="DIR",
+                   help="write RESTORE VERIFYONLY scripts for review into DIR (nothing is run)")
     p.add_argument("--user", help="SQL login; the password is read from BACKUP_VERIFY_PASSWORD")
     p.add_argument("--driver", default=DEFAULT_DRIVER, help="ODBC driver name (default: %(default)s)")
     p.add_argument("--no-encrypt", action="store_true", help="connect without encryption")
@@ -97,6 +100,9 @@ def main(argv=None, connect=None, stdout=None):
             return _error("database not found: %s" % ", ".join(sorted(missing)))
         databases = [d for d in databases if d.name.lower() in wanted]
     analysis = analyse(databases, backups, config, now, server=server_name or args.server)
+    if args.scripts_dir:
+        paths = write_scripts(args.scripts_dir, analysis.checked, backups, analysis.server, analysis.now)
+        print("backup-verify: wrote %d verify script(s) to %s" % (len(paths), args.scripts_dir), file=sys.stderr)
     text = render(analysis, args.format)
     if args.output:
         with open(args.output, "w", encoding="utf-8") as fh:
