@@ -8,9 +8,9 @@ from . import __version__
 from .analysis import analyse
 from .config import Config, ConfigError, load_config
 from .connection import DEFAULT_DRIVER
-from .queries import fetch_backups, fetch_databases, fetch_server_time
+from .queries import attach_files, fetch_backups, fetch_databases, fetch_files, fetch_server_time
 from .report import render
-from .scripts import write_scripts
+from .scripts import DEFAULT_RESTORE_DIR, DEFAULT_RESTORE_PREFIX, write_scripts
 
 EXIT_OK, EXIT_WARNING, EXIT_CRITICAL, EXIT_ERROR = 0, 1, 2, 3
 DEFAULT_LOOKBACK_DAYS = 14
@@ -39,6 +39,10 @@ def build_parser():
     p.add_argument("-o", "--output", help="write the report to this file instead of stdout")
     p.add_argument("--scripts-dir", metavar="DIR",
                    help="write RESTORE VERIFYONLY scripts for review into DIR (nothing is run)")
+    p.add_argument("--restore-dir", default=DEFAULT_RESTORE_DIR,
+                   help="folder for the files of a test restore (default: %(default)s)")
+    p.add_argument("--restore-prefix", default=DEFAULT_RESTORE_PREFIX,
+                   help="name prefix of the test-restore database (default: %(default)s)")
     p.add_argument("--user", help="SQL login; the password is read from BACKUP_VERIFY_PASSWORD")
     p.add_argument("--driver", default=DEFAULT_DRIVER, help="ODBC driver name (default: %(default)s)")
     p.add_argument("--no-encrypt", action="store_true", help="connect without encryption")
@@ -88,7 +92,9 @@ def main(argv=None, connect=None, stdout=None):
     try:
         now, server_name = fetch_server_time(conn)
         databases = fetch_databases(conn)
-        backups = fetch_backups(conn, now - timedelta(days=DEFAULT_LOOKBACK_DAYS))
+        since = now - timedelta(days=DEFAULT_LOOKBACK_DAYS)
+        backups = fetch_backups(conn, since)
+        attach_files(backups, fetch_files(conn, since))
     except Exception as exc:
         return _error("query failed: %s" % exc)
     finally:
@@ -101,8 +107,12 @@ def main(argv=None, connect=None, stdout=None):
         databases = [d for d in databases if d.name.lower() in wanted]
     analysis = analyse(databases, backups, config, now, server=server_name or args.server)
     if args.scripts_dir:
-        paths = write_scripts(args.scripts_dir, analysis.checked, backups, analysis.server, analysis.now)
-        print("backup-verify: wrote %d verify script(s) to %s" % (len(paths), args.scripts_dir), file=sys.stderr)
+        try:
+            paths = write_scripts(args.scripts_dir, analysis.checked, backups, analysis.server,
+                                  analysis.now, args.restore_dir, args.restore_prefix)
+        except ValueError as exc:
+            return _error(exc)
+        print("backup-verify: wrote %d script(s) to %s" % (len(paths), args.scripts_dir), file=sys.stderr)
     text = render(analysis, args.format)
     if args.output:
         with open(args.output, "w", encoding="utf-8") as fh:

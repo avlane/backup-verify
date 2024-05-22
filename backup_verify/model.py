@@ -26,6 +26,7 @@ class BackupSet:
     is_damaged: bool = False
     size_bytes: int = 0
     devices: list = field(default_factory=list)
+    files: list = field(default_factory=list)
 
     @property
     def type_name(self):
@@ -39,3 +40,12 @@ class DatabaseInfo:
     name: str
     recovery_model: str = "FULL"
     state: str = "ONLINE"
+
+
+@dataclass
+class BackupFile:
+    """A file inside a full or differential backup (from msdb.dbo.backupfile)."""
+
+    logical_name: str
+    physical_name: str
+    file_type: str  # "D" data, "L" log

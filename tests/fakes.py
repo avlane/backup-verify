@@ -57,4 +57,5 @@ def connection_from_fixture(name):
         ("backupmediafamily", doc["backups"]),
         ("sys.databases", doc["databases"]),
         ("GETDATE()", [{"server_time": doc["server_time"], "server_name": doc["server_name"]}]),
+        ("backupfile", doc.get("files", [])),
     ])

@@ -63,9 +63,11 @@ def codes(result):
 
 def fixture_backups(name, database):
     """All backups of one database from tests/fixtures/<name>.json, oldest first."""
-    from backup_verify.queries import fetch_backups
+    from backup_verify.queries import attach_files, fetch_backups, fetch_files
 
     from .fakes import connection_from_fixture
 
-    backups = fetch_backups(connection_from_fixture(name), NOW)
+    conn = connection_from_fixture(name)
+    backups = fetch_backups(conn, NOW)
+    attach_files(backups, fetch_files(conn, NOW))
     return sorted((b for b in backups if b.database == database), key=lambda b: b.start)

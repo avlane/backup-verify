@@ -58,5 +58,21 @@
     {"backup_set_id": 149, "database_name": "Reporting", "type": "L", "backup_start_date": "2023-03-01T06:00:00", "backup_finish_date": "2023-03-01T06:01:00", "is_copy_only": 0, "has_backup_checksums": 1, "is_damaged": 0, "backup_size": 8000000, "compressed_backup_size": 2000000, "physical_device_name": "\\\\backup01\\sqlbackups\\SQLPROD01\\Reporting\\Reporting_LOG_20230301_060000.trn", "device_type": 2, "first_lsn": 102090, "last_lsn": 102240, "checkpoint_lsn": 102240, "database_backup_lsn": 101865, "differential_base_lsn": null},
     {"backup_set_id": 150, "database_name": "Sales", "type": "L", "backup_start_date": "2023-03-01T06:00:00", "backup_finish_date": "2023-03-01T06:01:00", "is_copy_only": 0, "has_backup_checksums": 1, "is_damaged": 0, "backup_size": 8000000, "compressed_backup_size": 2000000, "physical_device_name": "\\\\backup01\\sqlbackups\\SQLPROD01\\Sales\\Sales_LOG_20230301_060000.trn", "device_type": 2, "first_lsn": 102190, "last_lsn": 102290, "checkpoint_lsn": 102290, "database_backup_lsn": 101795, "differential_base_lsn": null},
     {"backup_set_id": 151, "database_name": "Sales", "type": "L", "backup_start_date": "2023-03-01T07:00:00", "backup_finish_date": "2023-03-01T07:01:00", "is_copy_only": 0, "has_backup_checksums": 1, "is_damaged": 0, "backup_size": 8000000, "compressed_backup_size": 2000000, "physical_device_name": "\\\\backup01\\sqlbackups\\SQLPROD01\\Sales\\Sales_LOG_20230301_070000.trn", "device_type": 2, "first_lsn": 102290, "last_lsn": 102340, "checkpoint_lsn": 102340, "database_backup_lsn": 101795, "differential_base_lsn": null}
+  ],
+  "files": [
+    {"backup_set_id": 101, "logical_name": "Sales", "physical_name": "E:\\Data\\Sales.mdf", "file_type": "D"},
+    {"backup_set_id": 101, "logical_name": "Sales_log", "physical_name": "F:\\Log\\Sales_log.ldf", "file_type": "L"},
+    {"backup_set_id": 102, "logical_name": "Reporting", "physical_name": "E:\\Data\\Reporting.mdf", "file_type": "D"},
+    {"backup_set_id": 102, "logical_name": "Reporting_log", "physical_name": "F:\\Log\\Reporting_log.ldf", "file_type": "L"},
+    {"backup_set_id": 104, "logical_name": "Inventory", "physical_name": "E:\\Data\\Inventory.mdf", "file_type": "D"},
+    {"backup_set_id": 104, "logical_name": "Inventory_log", "physical_name": "F:\\Log\\Inventory_log.ldf", "file_type": "L"},
+    {"backup_set_id": 120, "logical_name": "Sales", "physical_name": "E:\\Data\\Sales.mdf", "file_type": "D"},
+    {"backup_set_id": 120, "logical_name": "Sales_log", "physical_name": "F:\\Log\\Sales_log.ldf", "file_type": "L"},
+    {"backup_set_id": 139, "logical_name": "Sales", "physical_name": "E:\\Data\\Sales.mdf", "file_type": "D"},
+    {"backup_set_id": 139, "logical_name": "Sales_log", "physical_name": "F:\\Log\\Sales_log.ldf", "file_type": "L"},
+    {"backup_set_id": 141, "logical_name": "Reporting", "physical_name": "E:\\Data\\Reporting.mdf", "file_type": "D"},
+    {"backup_set_id": 141, "logical_name": "Reporting_log", "physical_name": "F:\\Log\\Reporting_log.ldf", "file_type": "L"},
+    {"backup_set_id": 144, "logical_name": "Inventory", "physical_name": "E:\\Data\\Inventory.mdf", "file_type": "D"},
+    {"backup_set_id": 144, "logical_name": "Inventory_log", "physical_name": "F:\\Log\\Inventory_log.ldf", "file_type": "L"}
   ]
 }

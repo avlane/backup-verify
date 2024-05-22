@@ -1,7 +1,7 @@
 """SQL used to read backup history from msdb, and the row mapping."""
 from datetime import datetime
 
-from .model import BackupSet, DatabaseInfo
+from .model import BackupFile, BackupSet, DatabaseInfo
 
 BACKUP_SQL = """
 SELECT bs.backup_set_id, bs.database_name, bs.type,
@@ -110,3 +110,33 @@ def fetch_server_time(conn):
         return _dt(row["server_time"]), row["server_name"]
     finally:
         cur.close()
+
+
+FILES_SQL = """
+SELECT bf.backup_set_id, bf.logical_name, bf.physical_name, bf.file_type
+FROM msdb.dbo.backupfile AS bf
+JOIN msdb.dbo.backupset AS bs ON bs.backup_set_id = bf.backup_set_id
+WHERE bs.backup_start_date >= ?
+  AND bs.type IN ('D', 'I')
+  AND bf.file_type IN ('D', 'L')
+ORDER BY bf.backup_set_id, bf.file_number;
+"""
+
+
+def fetch_files(conn, since):
+    """Return {backup_set_id: [BackupFile, ...]} for full and differential backups."""
+    cur = conn.cursor()
+    try:
+        cur.execute(FILES_SQL, since)
+        files = {}
+        for row in rows_as_dicts(cur):
+            files.setdefault(int(row["backup_set_id"]), []).append(
+                BackupFile(row["logical_name"], row["physical_name"], row["file_type"]))
+        return files
+    finally:
+        cur.close()
+
+
+def attach_files(backups, files_by_set):
+    for backup in backups:
+        backup.files = files_by_set.get(backup.backup_set_id, [])
