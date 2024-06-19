@@ -13,6 +13,9 @@ class FakeCursor:
 
     def execute(self, sql, *params):
         self.conn.executed.append((sql, params))
+        for marker, message in self.conn.failures:
+            if marker in sql:
+                raise RuntimeError(message)
         for marker, rows in self.conn.responses:
             if marker in sql:
                 cols = list(rows[0]) if rows else []
@@ -28,6 +31,9 @@ class FakeCursor:
     def fetchone(self):
         return self._rows.pop(0) if self._rows else None
 
+    def nextset(self):
+        return False
+
     def close(self):
         pass
 
@@ -38,6 +44,7 @@ class FakeConnection:
         self.executed = []
         self.closed = False
         self.timeout = None
+        self.failures = []  # (substring of the SQL, error message)
 
     def cursor(self):
         return FakeCursor(self)
@@ -58,4 +65,5 @@ def connection_from_fixture(name):
         ("sys.databases", doc["databases"]),
         ("GETDATE()", [{"server_time": doc["server_time"], "server_name": doc["server_name"]}]),
         ("backupfile", doc.get("files", [])),
+        ("RESTORE VERIFYONLY", []),
     ])

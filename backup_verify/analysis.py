@@ -37,6 +37,11 @@ class Analysis:
                 worst[f.database] = f.severity
         return worst
 
+    def add(self, findings):
+        """Add findings (for example from --execute) and keep the list sorted."""
+        self.findings.extend(findings)
+        self.findings.sort(key=_sort_key)
+
     def counts(self):
         worst = self.worst_by_database()
         crit = sum(1 for s in worst.values() if s == CRITICAL)
@@ -47,6 +52,10 @@ class Analysis:
             "warning": warn,
             "ok": len(self.checked) - len(worst),
         }
+
+
+def _sort_key(finding):
+    return (SEVERITY_ORDER[finding.severity], finding.database.lower(), finding.code)
 
 
 def hours_between(later, earlier):
@@ -171,5 +180,5 @@ def analyse(databases, backups, config, now, server=""):
         if info.recovery_model != "SIMPLE":
             findings += check_log(info.name, mine, policy, now)
             findings += check_log_chain(info.name, mine)
-    findings.sort(key=lambda f: (SEVERITY_ORDER[f.severity], f.database.lower(), f.code))
+    findings.sort(key=_sort_key)
     return Analysis(server, now, checked, findings)
