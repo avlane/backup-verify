@@ -44,6 +44,8 @@ def build_parser():
     p.add_argument("--format", choices=("text", "json", "markdown"), default="text",
                    help="report format (default: text)")
     p.add_argument("-o", "--output", help="write the report to this file instead of stdout")
+    p.add_argument("--fail-on", choices=("warning", "critical", "never"), default="warning",
+                   help="lowest severity that gives a non-zero exit code (default: %(default)s)")
     p.add_argument("--scripts-dir", metavar="DIR",
                    help="write RESTORE VERIFYONLY and test-restore scripts for review into DIR (nothing is run)")
     p.add_argument("--restore-dir", default=DEFAULT_RESTORE_DIR,
@@ -74,11 +76,12 @@ def default_connect(args):
     )
 
 
-def exit_code(analysis):
+def exit_code(analysis, fail_on="warning"):
+    """Map findings to an exit code; `fail_on` sets the lowest severity that counts."""
     counts = analysis.counts()
-    if counts["critical"]:
+    if counts["critical"] and fail_on != "never":
         return EXIT_CRITICAL
-    if counts["warning"]:
+    if counts["warning"] and fail_on == "warning":
         return EXIT_WARNING
     return EXIT_OK
 
@@ -142,7 +145,7 @@ def _run(args, config, conn, stdout):
             fh.write(text)
     else:
         stdout.write(text)
-    return exit_code(analysis)
+    return exit_code(analysis, args.fail_on)
 
 
 def main(argv=None, connect=None, stdout=None):
