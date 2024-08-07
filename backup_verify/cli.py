@@ -46,6 +46,8 @@ def build_parser():
     p.add_argument("-o", "--output", help="write the report to this file instead of stdout")
     p.add_argument("--fail-on", choices=("warning", "critical", "never"), default="warning",
                    help="lowest severity that gives a non-zero exit code (default: %(default)s)")
+    p.add_argument("-q", "--quiet", action="store_true",
+                   help="print nothing to stdout when there are no findings (for cron and SQL Agent jobs)")
     p.add_argument("--scripts-dir", metavar="DIR",
                    help="write RESTORE VERIFYONLY and test-restore scripts for review into DIR (nothing is run)")
     p.add_argument("--restore-dir", default=DEFAULT_RESTORE_DIR,
@@ -143,7 +145,7 @@ def _run(args, config, conn, stdout):
     if args.output:
         with open(args.output, "w", encoding="utf-8") as fh:
             fh.write(text)
-    else:
+    elif analysis.findings or not args.quiet:
         stdout.write(text)
     return exit_code(analysis, args.fail_on)
 

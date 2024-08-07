@@ -36,3 +36,25 @@ class FailOnTest(unittest.TestCase):
     def test_errors_are_not_masked_by_never(self):
         code = main(["--server", "x", "--fail-on", "never"], connect=lambda a: 1 / 0, stdout=io.StringIO())
         self.assertEqual(code, 3)
+
+
+class QuietTest(unittest.TestCase):
+    def stdout_for(self, fixture, *argv):
+        out = io.StringIO()
+        main(["--server", "SQLPROD01", "--quiet", *argv],
+             connect=lambda args: connection_from_fixture(fixture), stdout=out)
+        return out.getvalue()
+
+    def test_clean_run_prints_nothing(self):
+        self.assertEqual(self.stdout_for("healthy", "--config", self.write_policy()), "")
+
+    def test_findings_are_still_printed(self):
+        self.assertIn("NO_FULL_BACKUP", self.stdout_for("stale", "--config", self.write_policy()))
+
+    def write_policy(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        path = os.path.join(tmp.name, "policy.json")
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump(FIXTURE_CONFIG, fh)
+        return path
