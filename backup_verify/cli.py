@@ -10,6 +10,7 @@ from .chain import group_by_database
 from .config import Config, ConfigError, load_config
 from .connection import DEFAULT_DRIVER
 from .execute import run_verify
+from .offline import HistoryFileError, open_history_file
 from .queries import attach_files, fetch_backups, fetch_databases, fetch_files, fetch_server_time
 from .report import render
 from .scripts import DEFAULT_RESTORE_DIR, DEFAULT_RESTORE_PREFIX, write_scripts
@@ -37,7 +38,9 @@ def build_parser():
         epilog="Exit codes: 0 clean, 1 warnings, 2 critical findings, 3 usage/config/connection error.",
     )
     p.add_argument("--version", action="version", version="%(prog)s " + __version__)
-    p.add_argument("--server", required=True, help="instance to check, e.g. SQLPROD01 or SQLPROD01,1433")
+    p.add_argument("--server", help="instance to check, e.g. SQLPROD01 or SQLPROD01,1433")
+    p.add_argument("--history-file", metavar="FILE",
+                   help="read an exported JSON history (see sql/export_history.sql) instead of connecting")
     p.add_argument("--config", help="policy file (RPO targets per database)")
     p.add_argument("-d", "--database", action="append", default=[], metavar="NAME",
                    help="only check this database (repeatable)")
@@ -152,13 +155,23 @@ def _run(args, config, conn, stdout):
 
 def main(argv=None, connect=None, stdout=None):
     stdout = stdout or sys.stdout
-    args = build_parser().parse_args(argv)
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    if bool(args.server) == bool(args.history_file):
+        parser.error("give exactly one of --server and --history-file")
+    if args.history_file and args.execute:
+        parser.error("--execute needs a live connection (--server)")
     try:
         config = load_config(args.config) if args.config else Config()
     except ConfigError as exc:
         return _error(exc)
     try:
-        conn = (connect or default_connect)(args)
+        if args.history_file:
+            conn = open_history_file(args.history_file)
+        else:
+            conn = (connect or default_connect)(args)
+    except HistoryFileError as exc:
+        return _error(exc)
     except Exception as exc:  # driver errors are not importable without the driver
         return _error("cannot connect to %s: %s" % (args.server, exc))
     try:

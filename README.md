@@ -96,3 +96,15 @@ run it in SSMS or sqlcmd.
 ```
 python3 -m unittest discover
 ```
+
+## Working from an exported history
+
+On a server where you cannot install Python, run `sql/export_history.sql` with
+sqlcmd, copy the JSON file to a workstation and use `--history-file`:
+
+```
+sqlcmd -S SQLPROD01 -E -h -1 -y 0 -i sql/export_history.sql -o history.json
+backup-verify --history-file history.json --config policy.toml
+```
+
+`--execute` needs a live connection and is refused with `--history-file`.
