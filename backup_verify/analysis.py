@@ -2,7 +2,7 @@
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from .chain import latest_full, usable
+from .chain import latest_full, restore_chain, usable
 from .model import FULL, DIFF, LOG
 
 CRITICAL = "critical"
@@ -159,6 +159,25 @@ def check_diff_base(db, backups):
     return []
 
 
+def check_quality(db, backups):
+    """Flag damaged backups in the restore chain and a full backup without checksums."""
+    chain = restore_chain(backups)
+    findings = []
+    for b in chain:
+        if b.is_damaged:
+            findings.append(Finding(
+                db, "BACKUP_DAMAGED", CRITICAL,
+                "%s backup %d is flagged as damaged in msdb" % (b.type_name, b.backup_set_id),
+                {"backup_set_id": b.backup_set_id}))
+    if chain and not chain[0].has_checksum:
+        findings.append(Finding(
+            db, "NO_CHECKSUM", WARNING,
+            "full backup %d was taken without CHECKSUM, so page checksums were not verified "
+            "when it was written" % chain[0].backup_set_id,
+            {"backup_set_id": chain[0].backup_set_id}))
+    return findings
+
+
 def analyse(databases, backups, config, now, server=""):
     by_db = {}
     for b in backups:
@@ -177,6 +196,7 @@ def analyse(databases, backups, config, now, server=""):
         findings += check_full(info.name, mine, policy, now)
         findings += check_diff(info.name, mine, policy, now)
         findings += check_diff_base(info.name, mine)
+        findings += check_quality(info.name, mine)
         if info.recovery_model != "SIMPLE":
             findings += check_log(info.name, mine, policy, now)
             findings += check_log_chain(info.name, mine)
