@@ -108,3 +108,24 @@ backup-verify --history-file history.json --config policy.toml
 ```
 
 `--execute` needs a live connection and is refused with `--history-file`.
+
+## Tests
+
+The tests (`python3 -m unittest discover`) need neither pyodbc nor a server. They cover:
+
+* the analysis rules, the restore-chain selection, the report formats and the
+  script generation, with hand-built backup histories and with the fixtures in
+  `tests/fixtures/`
+* the command line: options, exit codes, `--scripts-dir`, `--execute` (against a
+  fake connection that records the statements), `--history-file`
+* result-row mapping in `queries.py`, using a fake cursor that returns recorded rows
+* connection-string building, and `connect()` with an injected fake `pyodbc`
+
+## Limitations
+
+* msdb only knows about backups taken on that instance. On an availability group
+  with backups on a secondary, run the check against each replica.
+* If msdb history has been cleaned up (`sp_delete_backuphistory`) there may be
+  nothing to compare, which looks like a missing backup.
+* Backups made by third-party tools are only visible if they write to msdb.
+* Filestream and in-memory OLTP containers are not handled in the test-restore script.
