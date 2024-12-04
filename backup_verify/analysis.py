@@ -1,14 +1,24 @@
 """Compare backup history with the policy and produce findings."""
 from dataclasses import dataclass, field
 from datetime import datetime
+from enum import StrEnum
 
 from .chain import latest_full, restore_chain, usable
 from .model import FULL, DIFF, LOG
 
-CRITICAL = "critical"
-WARNING = "warning"
-INFO = "info"
-SEVERITY_ORDER = {CRITICAL: 0, WARNING: 1, INFO: 2}
+
+class Severity(StrEnum):
+    CRITICAL = "critical"
+    WARNING = "warning"
+    INFO = "info"
+
+    @property
+    def rank(self):
+        """0 is the worst, so sorting by rank puts critical findings first."""
+        return list(Severity).index(self)
+
+
+CRITICAL, WARNING, INFO = Severity.CRITICAL, Severity.WARNING, Severity.INFO
 
 
 @dataclass
@@ -18,6 +28,9 @@ class Finding:
     severity: str
     message: str
     detail: dict = field(default_factory=dict)
+
+    def __post_init__(self):
+        self.severity = Severity(self.severity)
 
 
 @dataclass
@@ -33,7 +46,7 @@ class Analysis:
             if f.severity == INFO:
                 continue
             current = worst.get(f.database)
-            if current is None or SEVERITY_ORDER[f.severity] < SEVERITY_ORDER[current]:
+            if current is None or f.severity.rank < current.rank:
                 worst[f.database] = f.severity
         return worst
 
@@ -55,7 +68,7 @@ class Analysis:
 
 
 def _sort_key(finding):
-    return (SEVERITY_ORDER[finding.severity], finding.database.lower(), finding.code)
+    return (finding.severity.rank, finding.database.lower(), finding.code)
 
 
 def hours_between(later, earlier):
