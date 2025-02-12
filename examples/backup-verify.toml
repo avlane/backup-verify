@@ -19,6 +19,12 @@ log_max_age_minutes = 15
 [databases.Reporting]
 log_max_age_minutes = 120    # logs every hour
 
+# Wildcards (* ? [seq]) are allowed in section names. An exact name wins over a
+# pattern; between patterns the first one in the file wins.
+[databases."Stage_*"]
+full_max_age_hours = 74
+log_max_age_minutes = false
+
 [databases.Archive]
 full_max_age_hours = 200     # weekly full
 log_max_age_minutes = false  # simple recovery, no log backups

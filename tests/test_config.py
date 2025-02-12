@@ -100,3 +100,33 @@ log_max_age_minutes = 10
         cfg = load_config(self.write("[defaults]\nlog_max_age_minutes = false\n"))
         self.assertIsNone(cfg.defaults.log_max_age_minutes)
         self.assertEqual(cfg.defaults.full_max_age_hours, 26)
+
+
+class WildcardTest(unittest.TestCase):
+    def cfg(self):
+        return parse_config({
+            "databases": {
+                "Stage_*": {"full_max_age_hours": 72},
+                "Stage_Orders": {"full_max_age_hours": 12},
+                "*_Archive": {"log_max_age_minutes": None},
+            },
+            "exclude": ["tempdb", "ReportServer*"],
+        })
+
+    def test_pattern_matches_case_insensitively(self):
+        self.assertEqual(self.cfg().policy_for("STAGE_billing").full_max_age_hours, 72)
+
+    def test_exact_name_beats_pattern_even_when_listed_later(self):
+        self.assertEqual(self.cfg().policy_for("stage_orders").full_max_age_hours, 12)
+
+    def test_unmatched_names_use_the_defaults(self):
+        self.assertEqual(self.cfg().policy_for("Sales").full_max_age_hours, 26)
+
+    def test_second_pattern(self):
+        self.assertIsNone(self.cfg().policy_for("Sales_Archive").log_max_age_minutes)
+
+    def test_exclude_patterns(self):
+        cfg = self.cfg()
+        self.assertTrue(cfg.is_excluded("ReportServerTempDB"))
+        self.assertTrue(cfg.is_excluded("TEMPDB"))
+        self.assertFalse(cfg.is_excluded("Reporting"))

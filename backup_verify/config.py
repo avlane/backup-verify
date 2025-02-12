@@ -1,4 +1,5 @@
 """Backup policy configuration (RPO targets per database)."""
+import fnmatch
 import json
 from dataclasses import dataclass, field, replace
 from typing import Optional
@@ -26,10 +27,18 @@ class Config:
     exclude: list = field(default_factory=lambda: ["tempdb"])
 
     def policy_for(self, name):
-        return self.databases.get(name.lower(), self.defaults)
+        """An exact name wins; otherwise the first matching wildcard section, in file order."""
+        key = name.lower()
+        if key in self.databases:
+            return self.databases[key]
+        for pattern, policy in self.databases.items():
+            if fnmatch.fnmatchcase(key, pattern):
+                return policy
+        return self.defaults
 
     def is_excluded(self, name):
-        return name.lower() in {x.lower() for x in self.exclude}
+        key = name.lower()
+        return any(fnmatch.fnmatchcase(key, pattern.lower()) for pattern in self.exclude)
 
 
 def _policy(section, base, where):
