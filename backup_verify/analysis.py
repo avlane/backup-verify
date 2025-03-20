@@ -130,9 +130,26 @@ def check_log(db, backups, policy, now):
 
 
 def check_log_chain(db, backups):
-    """Each log backup must start at the LSN where the previous one ended."""
-    logs = sorted(usable(backups, LOG), key=lambda b: b.start)
+    """Check the log chain that a restore from the latest full backup would follow.
+
+    Gaps that are older than the latest full backup are ignored. A full backup does
+    not restart the log chain, but nobody restores from before it, and a broken chain
+    that was repaired with a new full backup is not worth a critical finding forever.
+    """
+    full = latest_full(backups)
+    if full is None:
+        return []
+    logs = sorted((b for b in usable(backups, LOG) if b.last_lsn >= full.last_lsn),
+                  key=lambda b: b.first_lsn)
     findings = []
+    if logs and logs[0].first_lsn > full.last_lsn:
+        findings.append(Finding(
+            db, "LOG_CHAIN_NOT_ANCHORED", CRITICAL,
+            "the first log backup after the latest full backup (%d) starts at LSN %d, after the "
+            "end of the full backup (LSN %d); restoring past the full backup is not possible" % (
+                logs[0].backup_set_id, logs[0].first_lsn, full.last_lsn),
+            {"full_backup_set_id": full.backup_set_id, "full_last_lsn": full.last_lsn,
+             "first_log_backup_set_id": logs[0].backup_set_id, "first_log_first_lsn": logs[0].first_lsn}))
     for prev, cur in zip(logs, logs[1:]):
         if cur.first_lsn != prev.last_lsn:
             findings.append(Finding(

@@ -30,7 +30,7 @@ class DiffCheckTest(unittest.TestCase):
 
 class LogCheckTest(unittest.TestCase):
     def test_recent_log_is_fine(self):
-        result = run([backup("Sales", "D", 5), backup("Sales", "L", 0.25)],
+        result = run([backup("Sales", "D", 5, first=100, last=150), backup("Sales", "L", 0.25, first=150, last=200)],
                      log_max_age_minutes=30)
         self.assertEqual(result.findings, [])
 
@@ -40,10 +40,10 @@ class LogCheckTest(unittest.TestCase):
         self.assertEqual(result.findings[0].severity, CRITICAL)
 
     def test_stale_log_warning_then_critical(self):
-        warn = run([backup("Sales", "D", 5), backup("Sales", "L", 0.75)],
+        warn = run([backup("Sales", "D", 5, first=100, last=150), backup("Sales", "L", 0.75, first=150, last=200)],
                    log_max_age_minutes=30)
         self.assertEqual(warn.findings[0].code, "LOG_STALE")
         self.assertEqual(warn.findings[0].severity, WARNING)
-        crit = run([backup("Sales", "D", 5), backup("Sales", "L", 2)],
+        crit = run([backup("Sales", "D", 5, first=100, last=150), backup("Sales", "L", 2, first=150, last=200)],
                    log_max_age_minutes=30)
         self.assertEqual(crit.findings[0].severity, CRITICAL)
