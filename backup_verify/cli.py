@@ -2,7 +2,7 @@
 import argparse
 import os
 import sys
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from . import __version__
 from .analysis import CRITICAL, Finding, analyse
@@ -31,6 +31,13 @@ class _Failure(Exception):
     """An error that ends the run with EXIT_ERROR."""
 
 
+def _timestamp(text):
+    try:
+        return datetime.fromisoformat(text)
+    except ValueError:
+        raise argparse.ArgumentTypeError("not a date and time: %r (use e.g. 2025-04-30T14:30:00)" % text) from None
+
+
 def build_parser():
     p = _Parser(
         prog="backup-verify",
@@ -57,6 +64,8 @@ def build_parser():
                    help="folder for the files of a test restore (default: %(default)s)")
     p.add_argument("--restore-prefix", default=DEFAULT_RESTORE_PREFIX,
                    help="name prefix of the test-restore database (default: %(default)s)")
+    p.add_argument("--stopat", type=_timestamp, metavar="TIME",
+                   help="make the test-restore scripts a point-in-time restore to this server-local time")
     p.add_argument("--execute", action="store_true",
                    help="run RESTORE VERIFYONLY for the latest restore chain of every database on the server "
                         "(read-only but I/O heavy; without this flag nothing is ever run)")
@@ -140,7 +149,7 @@ def _run(args, config, conn, stdout):
     if args.scripts_dir:
         try:
             paths = write_scripts(args.scripts_dir, analysis.checked, backups, analysis.server,
-                                  analysis.now, args.restore_dir, args.restore_prefix)
+                                  analysis.now, args.restore_dir, args.restore_prefix, args.stopat)
         except ValueError as exc:
             raise _Failure(exc) from exc
         print("backup-verify: wrote %d script(s) to %s" % (len(paths), args.scripts_dir), file=sys.stderr)

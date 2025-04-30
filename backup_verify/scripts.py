@@ -4,7 +4,7 @@ import re
 
 from . import __version__
 from .chain import group_by_database, restore_chain
-from .model import DIFF
+from .model import DIFF, LOG
 
 DEFAULT_RESTORE_DIR = "D:\\RestoreTest"
 DEFAULT_RESTORE_PREFIX = "verify_"
@@ -68,7 +68,7 @@ def safe_filename(name):
 
 
 def write_scripts(directory, names, backups, server, when, restore_dir=DEFAULT_RESTORE_DIR,
-                  restore_prefix=DEFAULT_RESTORE_PREFIX):
+                  restore_prefix=DEFAULT_RESTORE_PREFIX, stopat=None):
     """Write one .verify.sql per database that has a usable full backup; return the paths."""
     os.makedirs(directory, exist_ok=True)
     grouped = group_by_database(backups)
@@ -84,7 +84,7 @@ def write_scripts(directory, names, backups, server, when, restore_dir=DEFAULT_R
         if restore_chain(mine)[0].files:
             path = os.path.join(directory, safe_filename(name) + ".test-restore.sql")
             with open(path, "w", encoding="utf-8", newline="\n") as fh:
-                fh.write(restore_test_script(name, mine, server, when, restore_dir, restore_prefix))
+                fh.write(restore_test_script(name, mine, server, when, restore_dir, restore_prefix, stopat))
             paths.append(path)
     return paths
 
@@ -105,8 +105,12 @@ def move_clauses(full, target, restore_dir):
 
 
 def restore_test_script(database, backups, server, when, restore_dir=DEFAULT_RESTORE_DIR,
-                        prefix=DEFAULT_RESTORE_PREFIX):
-    """A script that restores the latest chain as a differently named database and runs CHECKDB."""
+                        prefix=DEFAULT_RESTORE_PREFIX, stopat=None):
+    """A script that restores a chain as a differently named database and runs CHECKDB.
+
+    With `stopat` (server time) the last log restore gets a STOPAT clause, which
+    makes the script a rehearsal of a point-in-time recovery.
+    """
     if not prefix:
         raise ValueError("the restore prefix must not be empty: a test restore must never "
                          "target the source database")
@@ -119,9 +123,10 @@ def restore_test_script(database, backups, server, when, restore_dir=DEFAULT_RES
             restore_dir, quote_name(target))),
         "",
     ]
-    chain = restore_chain(backups)
+    chain = restore_chain(backups, stopat)
     if not chain:
-        lines.append("-- No usable full backup in the history window; nothing to restore.")
+        lines.append("-- No usable full backup%s in the history window; nothing to restore." % (
+            " that finished before STOPAT" if stopat else ""))
         return "\n".join(lines) + "\n"
     full = chain[0]
     if not full.files:
@@ -137,7 +142,12 @@ def restore_test_script(database, backups, server, when, restore_dir=DEFAULT_RES
         verb = "DATABASE" if backup.type == DIFF else "LOG"
         lines.append("-- %s backup %d, finished %s" % (
             backup.type_name, backup.backup_set_id, backup.finish.strftime("%Y-%m-%d %H:%M:%S")))
-        lines.append("RESTORE %s %s FROM %s WITH NORECOVERY;" % (verb, quote_name(target), device_clause(backup)))
+        options = "NORECOVERY"
+        if stopat is not None and backup is chain[-1] and backup.type == LOG:
+            options += ", STOPAT = " + quote_literal(stopat.strftime("%Y-%m-%dT%H:%M:%S"))
+        lines.append("RESTORE %s %s FROM %s WITH %s;" % (verb, quote_name(target), device_clause(backup), options))
+    if stopat is not None and chain[-1].type != LOG:
+        lines.append("-- No log backup reaches STOPAT; this restores the newest backup that finished before it.")
     lines.append("RESTORE DATABASE %s WITH RECOVERY;" % quote_name(target))
     lines.append("")
     lines.append("DBCC CHECKDB (%s) WITH NO_INFOMSGS, ALL_ERRORMSGS;" % quote_literal(target))

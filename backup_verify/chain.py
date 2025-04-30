@@ -1,4 +1,4 @@
-"""Work out which backups are needed to restore a database to its latest point."""
+"""Work out which backups are needed to restore a database."""
 from .model import FULL, DIFF, LOG
 
 
@@ -19,22 +19,35 @@ def latest_full(backups):
     return max(fulls, key=lambda b: b.finish) if fulls else None
 
 
-def restore_chain(backups):
-    """Return [full, differential?, log, log, ...] for restoring to the most recent point.
+def restore_chain(backups, stopat=None):
+    """Return [full, differential?, log, log, ...] needed to restore a database.
 
-    The list is empty when the history holds no usable full backup.
+    Without `stopat` the chain ends at the newest log backup. With `stopat` (a
+    datetime in server time) it is the chain for a point-in-time restore: the newest
+    full backup that finished before that moment, a matching differential that also
+    finished before it, and log backups up to and including the first one that
+    finished at or after it, because that one contains the target time.
+
+    The list is empty when the history holds no suitable full backup.
     """
-    full = latest_full(backups)
-    if full is None:
+    fulls = usable(backups, FULL)
+    if stopat is not None:
+        fulls = [b for b in fulls if b.finish <= stopat]
+    if not fulls:
         return []
+    full = max(fulls, key=lambda b: b.finish)
     chain = [full]
     start_lsn = full.last_lsn
     diffs = [b for b in usable(backups, DIFF)
-             if b.differential_base_lsn == full.checkpoint_lsn and b.start >= full.start]
+             if b.differential_base_lsn == full.checkpoint_lsn and b.start >= full.start
+             and (stopat is None or b.finish <= stopat)]
     if diffs:
         diff = max(diffs, key=lambda b: b.finish)
         chain.append(diff)
         start_lsn = diff.last_lsn
-    logs = [b for b in usable(backups, LOG) if b.last_lsn > start_lsn]
-    chain.extend(sorted(logs, key=lambda b: b.first_lsn))
+    logs = sorted((b for b in usable(backups, LOG) if b.last_lsn > start_lsn), key=lambda b: b.first_lsn)
+    for log in logs:
+        chain.append(log)
+        if stopat is not None and log.finish >= stopat:
+            break
     return chain
