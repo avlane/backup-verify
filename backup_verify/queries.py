@@ -60,6 +60,7 @@ def backup_from_row(row):
         is_damaged=bool(row["is_damaged"]),
         size_bytes=int(row["backup_size"] or 0),
         devices=[row["physical_device_name"]],
+        device_type=int(row["device_type"] or 2),
     )
 
 

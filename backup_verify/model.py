@@ -26,6 +26,7 @@ class BackupSet:
     is_damaged: bool = False
     size_bytes: int = 0
     devices: list = field(default_factory=list)
+    device_type: int = 2  # msdb device_type: 2 disk, 5 tape, 7 virtual device, 9 URL, 105 backup device
     files: list = field(default_factory=list)
 
     @property
