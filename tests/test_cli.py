@@ -98,4 +98,4 @@ class CliTest(unittest.TestCase):
 
         main(["--server", "SQLPROD01"], connect=connect, stdout=io.StringIO())
         params = [p for sql, p in conns[0].executed if "backupmediafamily" in sql]
-        self.assertEqual(params, [(datetime(2023, 2, 15, 8, 0, 0),)])
+        self.assertEqual(params, [(datetime(2023, 1, 25, 8, 0, 0),)])

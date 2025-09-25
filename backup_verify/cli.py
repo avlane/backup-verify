@@ -16,7 +16,7 @@ from .report import render
 from .scripts import DEFAULT_RESTORE_DIR, DEFAULT_RESTORE_PREFIX, write_scripts
 
 EXIT_OK, EXIT_WARNING, EXIT_CRITICAL, EXIT_ERROR = 0, 1, 2, 3
-DEFAULT_LOOKBACK_DAYS = 14
+DEFAULT_LOOKBACK_DAYS = 35
 
 
 class _Parser(argparse.ArgumentParser):
@@ -38,6 +38,16 @@ def _timestamp(text):
         raise argparse.ArgumentTypeError("not a date and time: %r (use e.g. 2025-04-30T14:30:00)" % text) from None
 
 
+def _positive_days(text):
+    try:
+        days = int(text)
+    except ValueError:
+        days = 0
+    if days < 1:
+        raise argparse.ArgumentTypeError("must be a whole number of days, at least 1")
+    return days
+
+
 def build_parser():
     p = _Parser(
         prog="backup-verify",
@@ -49,6 +59,9 @@ def build_parser():
     p.add_argument("--history-file", metavar="FILE",
                    help="read an exported JSON history (see sql/export_history.sql) instead of connecting")
     p.add_argument("--config", help="policy file (RPO targets per database)")
+    p.add_argument("--since-days", type=_positive_days, default=DEFAULT_LOOKBACK_DAYS, metavar="N",
+                   help="how many days of msdb history to read (default: %(default)s); it must be longer "
+                        "than your longest full backup interval")
     p.add_argument("-d", "--database", action="append", default=[], metavar="NAME",
                    help="only check this database (repeatable)")
     p.add_argument("--format", choices=("text", "json", "markdown"), default="text",
@@ -137,7 +150,7 @@ def _run(args, config, conn, stdout):
     try:
         now, server_name = fetch_server_time(conn)
         databases = fetch_databases(conn)
-        since = now - timedelta(days=DEFAULT_LOOKBACK_DAYS)
+        since = now - timedelta(days=args.since_days)
         backups = fetch_backups(conn, since)
         attach_files(backups, fetch_files(conn, since))
     except Exception as exc:
