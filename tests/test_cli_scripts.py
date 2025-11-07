@@ -1,4 +1,5 @@
 import io
+import json
 import os
 import tempfile
 import unittest
@@ -64,3 +65,36 @@ class TestRestoreScriptsTest(unittest.TestCase):
             code = main(["--server", "SQLPROD01", "--scripts-dir", tmp, "--restore-prefix", ""],
                         connect=lambda args: connection_from_fixture("healthy"), stdout=io.StringIO())
         self.assertEqual(code, 3)
+
+
+class RestoreSettingsFromPolicyTest(unittest.TestCase):
+    def write_policy(self, tmp, **extra):
+        path = os.path.join(tmp, "policy.json")
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump(extra, fh)
+        return path
+
+    def sales_script(self, *argv, **policy):
+        with tempfile.TemporaryDirectory() as tmp:
+            scripts = os.path.join(tmp, "scripts")
+            main(["--server", "SQLPROD01", "--config", self.write_policy(tmp, **policy),
+                  "--scripts-dir", scripts, *argv],
+                 connect=lambda args: connection_from_fixture("healthy"), stdout=io.StringIO())
+            with open(os.path.join(scripts, "Sales.test-restore.sql"), encoding="utf-8") as fh:
+                return fh.read()
+
+    def test_policy_file_supplies_the_settings(self):
+        text = self.sales_script(restore_test_dir="G:\\RT", restore_test_prefix="rt_")
+        self.assertIn("RESTORE DATABASE [rt_Sales]", text)
+        self.assertIn("G:\\RT\\rt_Sales_1.mdf", text)
+
+    def test_command_line_wins(self):
+        text = self.sales_script("--restore-dir", "H:\\X", "--restore-prefix", "cli_",
+                                 restore_test_dir="G:\\RT", restore_test_prefix="rt_")
+        self.assertIn("[cli_Sales]", text)
+        self.assertIn("H:\\X\\cli_Sales_1.mdf", text)
+
+    def test_built_in_defaults(self):
+        text = self.sales_script()
+        self.assertIn("[verify_Sales]", text)
+        self.assertIn("D:\\RestoreTest\\verify_Sales_1.mdf", text)

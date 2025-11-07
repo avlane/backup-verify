@@ -10,7 +10,7 @@ class ConfigError(ValueError):
 
 
 POLICY_KEYS = {"full_max_age_hours", "diff_max_age_hours", "log_max_age_minutes"}
-TOP_LEVEL_KEYS = {"defaults", "databases", "exclude"}
+TOP_LEVEL_KEYS = {"defaults", "databases", "exclude", "restore_test_dir", "restore_test_prefix"}
 
 
 @dataclass(frozen=True)
@@ -25,6 +25,8 @@ class Config:
     defaults: Policy = field(default_factory=Policy)
     databases: dict = field(default_factory=dict)
     exclude: list = field(default_factory=lambda: ["tempdb"])
+    restore_dir: Optional[str] = None
+    restore_prefix: Optional[str] = None
 
     def policy_for(self, name):
         """An exact name wins; otherwise the first matching wildcard section, in file order."""
@@ -58,6 +60,13 @@ def _policy(section, base, where):
     return replace(base, **values)
 
 
+def _text(data, key):
+    value = data.get(key)
+    if value is not None and (not isinstance(value, str) or not value.strip()):
+        raise ConfigError("%s must be a non-empty string" % key)
+    return value
+
+
 def parse_config(data):
     if not isinstance(data, dict):
         raise ConfigError("the top level of the config must be an object")
@@ -71,7 +80,9 @@ def parse_config(data):
     exclude = data.get("exclude", ["tempdb"])
     if not isinstance(exclude, list):
         raise ConfigError("exclude must be a list of database names")
-    return Config(defaults, databases, list(exclude))
+    return Config(defaults, databases, list(exclude),
+                  restore_dir=_text(data, "restore_test_dir"),
+                  restore_prefix=_text(data, "restore_test_prefix"))
 
 
 def load_config(path):

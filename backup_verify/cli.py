@@ -73,10 +73,12 @@ def build_parser():
                    help="print nothing to stdout when there are no findings (for cron and SQL Agent jobs)")
     p.add_argument("--scripts-dir", metavar="DIR",
                    help="write RESTORE VERIFYONLY and test-restore scripts for review into DIR (nothing is run)")
-    p.add_argument("--restore-dir", default=DEFAULT_RESTORE_DIR,
-                   help="folder for the files of a test restore (default: %(default)s)")
-    p.add_argument("--restore-prefix", default=DEFAULT_RESTORE_PREFIX,
-                   help="name prefix of the test-restore database (default: %(default)s)")
+    p.add_argument("--restore-dir",
+                   help="folder for the files of a test restore (default: restore_test_dir from the "
+                        "policy file, else %s)" % DEFAULT_RESTORE_DIR)
+    p.add_argument("--restore-prefix",
+                   help="name prefix of the test-restore database (default: restore_test_prefix from "
+                        "the policy file, else %s)" % DEFAULT_RESTORE_PREFIX)
     p.add_argument("--stopat", type=_timestamp, metavar="TIME",
                    help="make the test-restore scripts a point-in-time restore to this server-local time")
     p.add_argument("--execute", action="store_true",
@@ -161,8 +163,12 @@ def _run(args, config, conn, stdout):
         analysis.add(_verify(conn, analysis, backups))
     if args.scripts_dir:
         try:
+            restore_dir = args.restore_dir or config.restore_dir or DEFAULT_RESTORE_DIR
+            restore_prefix = args.restore_prefix
+            if restore_prefix is None:
+                restore_prefix = config.restore_prefix or DEFAULT_RESTORE_PREFIX
             paths = write_scripts(args.scripts_dir, analysis.checked, backups, analysis.server,
-                                  analysis.now, args.restore_dir, args.restore_prefix, args.stopat)
+                                  analysis.now, restore_dir, restore_prefix, args.stopat)
         except ValueError as exc:
             raise _Failure(exc) from exc
         print("backup-verify: wrote %d script(s) to %s" % (len(paths), args.scripts_dir), file=sys.stderr)

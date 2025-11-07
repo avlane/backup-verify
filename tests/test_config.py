@@ -130,3 +130,19 @@ class WildcardTest(unittest.TestCase):
         self.assertTrue(cfg.is_excluded("ReportServerTempDB"))
         self.assertTrue(cfg.is_excluded("TEMPDB"))
         self.assertFalse(cfg.is_excluded("Reporting"))
+
+
+class RestoreSettingsTest(unittest.TestCase):
+    def test_defaults_are_unset(self):
+        cfg = parse_config({})
+        self.assertIsNone(cfg.restore_dir)
+        self.assertIsNone(cfg.restore_prefix)
+
+    def test_settings_are_read(self):
+        cfg = parse_config({"restore_test_dir": "E:\\RT", "restore_test_prefix": "rt_"})
+        self.assertEqual((cfg.restore_dir, cfg.restore_prefix), ("E:\\RT", "rt_"))
+
+    def test_empty_values_are_rejected(self):
+        for bad in ("", "  ", 5):
+            with self.assertRaises(ConfigError):
+                parse_config({"restore_test_prefix": bad})

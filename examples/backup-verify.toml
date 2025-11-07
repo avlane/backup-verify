@@ -5,6 +5,11 @@
 # Databases are matched by name, case-insensitively. To switch a check off, set it
 # to false (TOML has no null); JSON files use null for the same thing.
 
+# Where --scripts-dir test restores put their files, and how the copy is named.
+# (Single quotes keep the backslashes literal in TOML.)
+restore_test_dir = 'D:\RestoreTest'
+restore_test_prefix = "verify_"
+
 # Databases that are never checked.
 exclude = ["tempdb", "model"]
 
