@@ -129,3 +129,11 @@ The tests (`python3 -m unittest discover`) need neither pyodbc nor a server. The
   nothing to compare, which looks like a missing backup.
 * Backups made by third-party tools are only visible if they write to msdb.
 * Filestream and in-memory OLTP containers are not handled in the test-restore script.
+
+## Running it on a schedule
+
+`examples/nightly.ps1` is a starting point for a Windows scheduled task or a SQL
+Agent step. It writes the JSON report and the review scripts to a dated location and
+returns the exit code of `backup-verify --fail-on critical`. With `--quiet` and
+`--fail-on never` the tool prints only when something is wrong and never fails the
+job, which suits a mail-on-output setup.
