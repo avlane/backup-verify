@@ -39,6 +39,7 @@ class Analysis:
     now: datetime
     checked: list
     findings: list
+    chains: dict = field(default_factory=dict)  # database name -> restore chain
 
     def worst_by_database(self):
         worst = {}
@@ -212,7 +213,7 @@ def analyse(databases, backups, config, now, server=""):
     by_db = {}
     for b in backups:
         by_db.setdefault(b.database.lower(), []).append(b)
-    checked, findings = [], []
+    checked, findings, chains = [], [], {}
     for info in databases:
         if config.is_excluded(info.name):
             continue
@@ -223,6 +224,7 @@ def analyse(databases, backups, config, now, server=""):
         checked.append(info.name)
         mine = sorted(by_db.get(info.name.lower(), []), key=lambda b: b.start)
         policy = config.policy_for(info.name)
+        chains[info.name] = restore_chain(mine)
         findings += check_full(info.name, mine, policy, now)
         findings += check_diff(info.name, mine, policy, now)
         findings += check_diff_base(info.name, mine)
@@ -231,4 +233,4 @@ def analyse(databases, backups, config, now, server=""):
             findings += check_log(info.name, mine, policy, now)
             findings += check_log_chain(info.name, mine)
     findings.sort(key=_sort_key)
-    return Analysis(server, now, checked, findings)
+    return Analysis(server, now, checked, findings, chains)

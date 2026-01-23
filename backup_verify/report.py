@@ -19,12 +19,22 @@ def render_text(analysis):
     return "\n".join(lines) + "\n"
 
 
+def _chain_entry(backup):
+    return {
+        "backup_set_id": backup.backup_set_id,
+        "type": backup.type_name,
+        "finished": backup.finish.isoformat(timespec="seconds"),
+        "devices": list(backup.devices),
+    }
+
+
 def render_json(analysis):
     doc = {
         "server": analysis.server,
         "server_time": analysis.now.isoformat(timespec="seconds"),
         "summary": analysis.counts(),
         "findings": [asdict(f) for f in analysis.findings],
+        "restore_chains": {name: [_chain_entry(b) for b in chain] for name, chain in analysis.chains.items()},
     }
     return json.dumps(doc, indent=2) + "\n"
 

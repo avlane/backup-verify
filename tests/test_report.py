@@ -51,3 +51,17 @@ class MarkdownReportTest(unittest.TestCase):
         text = render(analyse_fixture("healthy"), "markdown")
         self.assertIn("No problems found.", text)
         self.assertNotIn("| Severity", text)
+
+
+class RestoreChainsInJsonTest(unittest.TestCase):
+    def test_chains_are_listed_per_database(self):
+        doc = json.loads(render(analyse_fixture("healthy"), "json"))
+        chains = doc["restore_chains"]
+        self.assertEqual(sorted(chains), ["Inventory", "Reporting", "Sales"])
+        self.assertEqual([b["type"] for b in chains["Sales"]], ["full"] + ["log"] * 7)
+        self.assertEqual(chains["Sales"][0]["finished"], "2023-03-01T01:06:00")
+        self.assertTrue(chains["Sales"][0]["devices"][0].endswith(".bak"))
+
+    def test_database_without_backups_has_an_empty_chain(self):
+        doc = json.loads(render(analyse_fixture("stale"), "json"))
+        self.assertEqual(doc["restore_chains"]["NewDb"], [])
