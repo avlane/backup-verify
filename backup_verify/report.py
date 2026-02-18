@@ -39,6 +39,11 @@ def render_json(analysis):
     return json.dumps(doc, indent=2) + "\n"
 
 
+def _cell(value):
+    """Escape text for a Markdown table cell."""
+    return str(value).replace("\\", "\\\\").replace("|", "\\|").replace("\r", " ").replace("\n", " ")
+
+
 def render_markdown(analysis):
     counts = analysis.counts()
     lines = [
@@ -55,7 +60,7 @@ def render_markdown(analysis):
         lines.append("| Severity | Database | Code | Detail |")
         lines.append("| --- | --- | --- | --- |")
         for f in analysis.findings:
-            lines.append("| %s | %s | `%s` | %s |" % (f.severity, f.database, f.code, f.message))
+            lines.append("| %s | %s | `%s` | %s |" % (f.severity, _cell(f.database), f.code, _cell(f.message)))
     return "\n".join(lines) + "\n"
 
 

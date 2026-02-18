@@ -65,3 +65,16 @@ class RestoreChainsInJsonTest(unittest.TestCase):
     def test_database_without_backups_has_an_empty_chain(self):
         doc = json.loads(render(analyse_fixture("stale"), "json"))
         self.assertEqual(doc["restore_chains"]["NewDb"], [])
+
+
+class MarkdownEscapingTest(unittest.TestCase):
+    def test_pipes_and_newlines_do_not_break_the_table(self):
+        from datetime import datetime
+
+        from backup_verify.analysis import Analysis, Finding, CRITICAL
+
+        finding = Finding("odd|name", "NO_FULL_BACKUP", CRITICAL, "line one\nline | two")
+        text = render(Analysis("SQLPROD01", datetime(2026, 1, 1), ["odd|name"], [finding]), "markdown")
+        row = [line for line in text.splitlines() if "NO_FULL_BACKUP" in line][0]
+        self.assertEqual(row, "| critical | odd\\|name | `NO_FULL_BACKUP` | line one line \\| two |")
+        self.assertEqual(row.replace("\\|", "").count("|"), 5)
