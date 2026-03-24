@@ -41,6 +41,7 @@ class DatabaseInfo:
     name: str
     recovery_model: str = "FULL"
     state: str = "ONLINE"
+    created: Optional[datetime] = None
 
 
 @dataclass

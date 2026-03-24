@@ -19,7 +19,7 @@ ORDER BY bs.database_name, bs.backup_start_date, bs.backup_set_id, bmf.family_se
 """
 
 DATABASE_SQL = """
-SELECT name, recovery_model_desc, state_desc
+SELECT name, recovery_model_desc, state_desc, create_date
 FROM sys.databases
 WHERE database_id <> 2
   AND source_database_id IS NULL
@@ -88,7 +88,8 @@ def fetch_databases(conn):
     try:
         cur.execute(DATABASE_SQL)
         return [
-            DatabaseInfo(row["name"], row["recovery_model_desc"], row["state_desc"])
+            DatabaseInfo(row["name"], row["recovery_model_desc"], row["state_desc"],
+                         _dt(row.get("create_date")))
             for row in rows_as_dicts(cur)
         ]
     finally:

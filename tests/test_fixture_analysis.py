@@ -13,7 +13,6 @@ class FixtureAnalysisTest(unittest.TestCase):
         result = analyse_fixture("stale")
         self.assertEqual(codes(result), [
             ("NewDb", "NO_FULL_BACKUP"),
-            ("NewDb", "NO_LOG_BACKUP"),
             ("Sales", "FULL_STALE"),
             ("Sales", "LOG_STALE"),
         ])

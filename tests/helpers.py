@@ -71,3 +71,11 @@ def fixture_backups(name, database):
     backups = fetch_backups(conn, NOW)
     attach_files(backups, fetch_files(conn, NOW))
     return sorted((b for b in backups if b.database == database), key=lambda b: b.start)
+
+
+def fixture_databases(name):
+    from backup_verify.queries import fetch_databases
+
+    from .fakes import connection_from_fixture
+
+    return fetch_databases(connection_from_fixture(name))

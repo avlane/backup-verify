@@ -81,9 +81,13 @@ def latest(backups, kind):
     return max(chosen, key=lambda b: b.finish) if chosen else None
 
 
-def check_full(db, backups, policy, now):
+def check_full(db, backups, policy, now, created=None):
     full = latest(backups, FULL)
     if full is None:
+        if created is not None and hours_between(now, created) < policy.full_max_age_hours:
+            return [Finding(db, "NEW_DATABASE", INFO,
+                            "created %.1f h ago; the first full backup is not due yet" % hours_between(now, created),
+                            {"created": created.isoformat()})]
         copies = [b for b in backups if b.type == FULL and b.is_copy_only]
         note = " (only copy-only full backups exist, and those do not count)" if copies else ""
         return [Finding(db, "NO_FULL_BACKUP", CRITICAL,
@@ -225,11 +229,12 @@ def analyse(databases, backups, config, now, server=""):
         mine = sorted(by_db.get(info.name.lower(), []), key=lambda b: b.start)
         policy = config.policy_for(info.name)
         chains[info.name] = restore_chain(mine)
-        findings += check_full(info.name, mine, policy, now)
+        findings += check_full(info.name, mine, policy, now, info.created)
         findings += check_diff(info.name, mine, policy, now)
         findings += check_diff_base(info.name, mine)
         findings += check_quality(info.name, mine)
-        if info.recovery_model != "SIMPLE":
+        # log backups are impossible before the first full backup, so NO_FULL_BACKUP says it all
+        if info.recovery_model != "SIMPLE" and latest_full(mine) is not None:
             findings += check_log(info.name, mine, policy, now)
             findings += check_log_chain(info.name, mine)
     findings.sort(key=_sort_key)
