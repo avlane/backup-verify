@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.0 - 2026-06-10
+
+* Restore chains are listed in the JSON report
+* Recently created databases are informational; no log findings without a full backup
+* Markdown tables escape pipes and newlines
+* Test-restore folder and prefix can be set in the policy file; `--since-days`
+  (default 35 days) replaces the fixed 14 day window
+* README rewritten, with the full list of findings and options
+
 ## 0.4.0 - 2025-08-13
 
 * Wildcards in database sections and in `exclude`
